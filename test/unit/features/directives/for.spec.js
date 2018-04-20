@@ -348,7 +348,7 @@ describe('Directive v-for', () => {
       },
       template:
         '<div>' +
-          '<test v-for="item in list" :msg="item.a">' +
+          '<test v-for="item in list" :msg="item.a" :key="item.a">' +
             '<span>{{item.a}}</span>' +
           '</test>' +
         '</div>',
@@ -387,7 +387,7 @@ describe('Directive v-for', () => {
       },
       template:
         '<div>' +
-          '<component v-for="item in list" :is="item.type"></component>' +
+          '<component v-for="item in list" :key="item.type" :is="item.type"></component>' +
         '</div>',
       components: {
         one: {
@@ -403,6 +403,23 @@ describe('Directive v-for', () => {
     waitForUpdate(() => {
       expect(vm.$el.innerHTML).toContain('<div>Two!</div><p>One!</p>')
     }).then(done)
+  })
+
+  it('should warn component v-for without keys', () => {
+    const warn = console.warn
+    console.warn = jasmine.createSpy()
+    new Vue({
+      template: `<div><test v-for="i in 3"></test></div>`,
+      components: {
+        test: {
+          render () {}
+        }
+      }
+    }).$mount()
+    expect(console.warn.calls.argsFor(0)[0]).toContain(
+      `<test v-for="i in 3">: component lists rendered with v-for should have explicit keys`
+    )
+    console.warn = warn
   })
 
   it('multi nested array reactivity', done => {
@@ -429,14 +446,14 @@ describe('Directive v-for', () => {
     }).then(done)
   })
 
-  it('strings', done => {
+  it('should work with strings', done => {
     const vm = new Vue({
       data: {
         text: 'foo'
       },
       template: `
         <div>
-          <span v-for="letter in text">{{ letter }}.</span
+          <span v-for="letter in text">{{ letter }}.</span>
         </div>
       `
     }).$mount()
@@ -446,4 +463,49 @@ describe('Directive v-for', () => {
       expect(vm.$el.textContent).toMatch('f.o.o.b.a.r.')
     }).then(done)
   })
+
+  // #7792
+  it('should work with multiline expressions', () => {
+    const vm = new Vue({
+      data: {
+        a: [1],
+        b: [2]
+      },
+      template: `
+        <div>
+          <span v-for="n in (
+            a.concat(
+              b
+            )
+          )">{{ n }}</span>
+        </div>
+      `
+    }).$mount()
+    expect(vm.$el.textContent).toBe('12')
+  })
+
+  const supportsDestructuring = (() => {
+    try {
+      new Function('var { foo } = bar')
+      return true
+    } catch (e) {}
+  })()
+
+  if (supportsDestructuring) {
+    it('should support destructuring syntax in alias position (object)', () => {
+      const vm = new Vue({
+        data: { list: [{ foo: 'hi', bar: 'ho' }] },
+        template: '<div><div v-for="({ foo, bar }, i) in list">{{ foo }} {{ bar }} {{ i }}</div></div>'
+      }).$mount()
+      expect(vm.$el.textContent).toBe('hi ho 0')
+    })
+
+    it('should support destructuring syntax in alias position (array)', () => {
+      const vm = new Vue({
+        data: { list: [[1, 2], [3, 4]] },
+        template: '<div><div v-for="([ foo, bar ], i) in list">{{ foo }} {{ bar }} {{ i }}</div></div>'
+      }).$mount()
+      expect(vm.$el.textContent).toBe('1 2 03 4 1')
+    })
+  }
 })

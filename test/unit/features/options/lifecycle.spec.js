@@ -1,6 +1,6 @@
 import Vue from 'vue'
 
-describe('Options lifecyce hooks', () => {
+describe('Options lifecycle hooks', () => {
   let spy
   beforeEach(() => {
     spy = jasmine.createSpy('hook')
@@ -93,7 +93,7 @@ describe('Options lifecyce hooks', () => {
     it('should mount child parent in correct order', () => {
       const calls = []
       new Vue({
-        template: '<div><test></test><div>',
+        template: '<div><test></test></div>',
         mounted () {
           calls.push('parent')
         },
@@ -137,6 +137,21 @@ describe('Options lifecyce hooks', () => {
         expect(spy).toHaveBeenCalled()
       }).then(done)
     })
+
+    it('should be called before render and allow mutating state', done => {
+      const vm = new Vue({
+        template: '<div>{{ msg }}</div>',
+        data: { msg: 'foo' },
+        beforeUpdate () {
+          this.msg += '!'
+        }
+      }).$mount()
+      expect(vm.$el.textContent).toBe('foo')
+      vm.msg = 'bar'
+      waitForUpdate(() => {
+        expect(vm.$el.textContent).toBe('bar!')
+      }).then(done)
+    })
   })
 
   describe('updated', () => {
@@ -154,6 +169,34 @@ describe('Options lifecyce hooks', () => {
       expect(spy).not.toHaveBeenCalled() // should be async
       waitForUpdate(() => {
         expect(spy).toHaveBeenCalled()
+      }).then(done)
+    })
+
+    it('should be called after children are updated', done => {
+      const calls = []
+      const vm = new Vue({
+        template: '<div><test ref="child">{{ msg }}</test></div>',
+        data: { msg: 'foo' },
+        components: {
+          test: {
+            template: `<div><slot></slot></div>`,
+            updated () {
+              expect(this.$el.textContent).toBe('bar')
+              calls.push('child')
+            }
+          }
+        },
+        updated () {
+          expect(this.$el.textContent).toBe('bar')
+          calls.push('parent')
+        }
+      }).$mount()
+
+      expect(calls).toEqual([])
+      vm.msg = 'bar'
+      expect(calls).toEqual([])
+      waitForUpdate(() => {
+        expect(calls).toEqual(['child', 'parent'])
       }).then(done)
     })
   })

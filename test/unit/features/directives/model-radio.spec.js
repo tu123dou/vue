@@ -197,14 +197,58 @@ describe('Directive v-model radio', () => {
     }).then(done)
   })
 
-  it('warn inline checked', () => {
+  // #4521
+  it('should work with click event', (done) => {
     const vm = new Vue({
-      template: `<input v-model="test" type="radio" value="1" checked>`,
       data: {
-        test: '2'
+        num: 1,
+        checked: 1
+      },
+      template:
+        '<div @click="add">' +
+          'click {{ num }}<input name="test" type="radio" value="1" v-model="checked"/>' +
+          '<input name="test" type="radio" value="2" v-model="checked"/>' +
+        '</div>',
+      methods: {
+        add: function () {
+          this.num++
+        }
       }
     }).$mount()
-    expect(vm.$el.checked).toBe(false)
-    expect('inline checked attributes will be ignored when using v-model').toHaveBeenWarned()
+    document.body.appendChild(vm.$el)
+    const radios = vm.$el.getElementsByTagName('input')
+    radios[0].click()
+    waitForUpdate(() => {
+      expect(radios[0].checked).toBe(true)
+      expect(radios[1].checked).toBe(false)
+      expect(vm.num).toBe(2)
+      radios[0].click()
+    }).then(() => {
+      expect(radios[0].checked).toBe(true)
+      expect(radios[1].checked).toBe(false)
+      expect(vm.num).toBe(3)
+      radios[1].click()
+    }).then(() => {
+      expect(radios[0].checked).toBe(false)
+      expect(radios[1].checked).toBe(true)
+      expect(vm.num).toBe(4)
+    }).then(done)
+  })
+
+  it('should get updated with model when in focus', (done) => {
+    const vm = new Vue({
+      data: {
+        a: '2'
+      },
+      template: '<input type="radio" value="1" v-model="a"/>'
+    }).$mount()
+    document.body.appendChild(vm.$el)
+    vm.$el.click()
+    waitForUpdate(() => {
+      expect(vm.$el.checked).toBe(true)
+      vm.a = 2
+    }).then(() => {
+      expect(vm.$el.checked).toBe(false)
+    }).then(done)
   })
 })
